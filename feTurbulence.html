@@ -7,9 +7,9 @@
 			var RAND_a = 16807;
 			var RAND_q = 127773;
 			var RAND_r = 2836;
-			var BSize = 256;
+			var BSize = 0x100;
 			var BM = 0xFF;
-			var PerlinN = 4096;
+			var PerlinN = 0x1000;
 
 			setup_seed = function(lSeed)
 				{
@@ -50,9 +50,17 @@
 										{
 											fGradient[k][i][j] = ((lSeed = random(lSeed)) % (BSize + BSize) - BSize) / BSize;
 										}
+									//do
+									//	{
+									//		fGradient[k][i][0] = ((lSeed = random(lSeed)) % (BSize + BSize) - BSize) / BSize;
+									//		fGradient[k][i][1] = ((lSeed = random(lSeed)) % (BSize + BSize) - BSize) / BSize;
+									//	}
+									//while(fGradient[k][i][0] == 0 && fGradient[k][i][1] == 0);
 									s = Math.sqrt(fGradient[k][i][0] * fGradient[k][i][0] + fGradient[k][i][1] * fGradient[k][i][1]);
-									fGradient[k][i][0] = (fGradient[k][i][0] == 0 ? 0: fGradient[k][i][0] / s);
-									fGradient[k][i][1] = (fGradient[k][i][1] == 0 ? 0: fGradient[k][i][1] / s);
+									//fGradient[k][i][0] /= s;
+									//fGradient[k][i][1] /= s;
+									fGradient[k][i][0] = (fGradient[k][i][0] == 0 ? 0 : fGradient[k][i][0] / s);
+									fGradient[k][i][1] = (fGradient[k][i][1] == 0 ? 0 : fGradient[k][i][1] / s);
 								}
 						}
 					while(--i)
@@ -124,7 +132,7 @@
 					return lerp(sy, a, b);
 				}
 
-			turbulence = function(nColorChannel, point, fBaseFreqX, fBaseFreqY, nNumOctaves)
+			turbulence = function(nColorChannel, point, fBaseFreqX, fBaseFreqY, nNumOctaves, bFractalSum)
 				{
 					var fSum = 0;
 					vec = [];
@@ -133,7 +141,14 @@
 					var ratio = 1;
 					for(nOctave = 0; nOctave < nNumOctaves; nOctave++)
 						{
-							fSum += noise2(nColorChannel, vec) / ratio;
+							if(bFractalSum)
+								{
+									fSum += noise2(nColorChannel, vec) / ratio;
+								}
+							else
+								{
+									fSum += Math.abs(noise2(nColorChannel, vec) / ratio);
+								}
 							vec[0] *= 2;
 							vec[1] *= 2;
 							ratio *= 2;
@@ -147,23 +162,28 @@
 		<canvas id="canvas"></canvas>
 		<svg id="svg">
 			<defs>
-				<filter id="filter">
-					<feTurbulence id="feTurbulence" type="fractalNoise" baseFrequency="0" numOctaves="0" seed="0"/>
+				<filter id="filter" color-interpolation-filters="sRGB">
+					<feTurbulence id="feTurbulence"/>
 				</filter>
 			</defs>
 			<rect id="rect" x="0" y="0" width="100%" height="100%" filter="url(#filter)"/>
 		</svg>
 		<script type="application/javascript">
-			var width = 400;
-			var height = 400;
+			var width = 500;
+			var height = 500;
 			var freqx = 0.01;
 			var freqy = 0.01;
 			var octaves = 8;
-			var seed = 1;
+			var seed = 2;
+			var fractalNoise = true;
 			canvas.setAttribute("width", width);
 			canvas.setAttribute("height", height);
 			svg.setAttribute("width", width);
 			svg.setAttribute("height", height);
+			if (fractalNoise)
+				{
+					feTurbulence.setAttribute("type", "fractalNoise");
+				}
 			feTurbulence.setAttribute("baseFrequency", freqx + " " + freqy);
 			feTurbulence.setAttribute("numOctaves", octaves);
 			feTurbulence.setAttribute("seed", seed);
@@ -175,8 +195,16 @@
 							color = []
 							for (var z = 0; z < 4; z++)
 								{
-									turbFunctionResult = turbulence(z, [x,y], freqx, freqy, octaves);
-									colorValue = ((turbFunctionResult * 255) + 255) / 2
+									turbFunctionResult = turbulence(z, [x,y], freqx, freqy, octaves, fractalNoise);
+									//p.textContent += "turbulence[" +turbFunctionResult+ "]\n";
+									if (fractalNoise)
+										{
+											colorValue = (turbFunctionResult * 255 + 255) / 2
+										}
+									else
+										{
+											colorValue = turbFunctionResult * 255;
+										}
 									colorValue = parseInt(colorValue);
 									if (colorValue < 0)
 										{
@@ -189,8 +217,7 @@
 									color[z] = colorValue;
 								}
 							var pixel = canvas.getContext("2d");
-							pixel.fillStyle = "rgb(" +color[0]+ "," +color[1]+ "," +color[2]+ ")";
-							pixel.globalAlpha = color[3] / 255;
+							pixel.fillStyle = "rgba(" +color[0]+ ", " +color[1]+ ", " +color[2]+ ", " +(color[3] / 255)+ ")";
 							pixel.fillRect(x,y,1,1);
 						}
 				}
